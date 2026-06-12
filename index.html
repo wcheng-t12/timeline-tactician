@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Launch Lab - Physics Minigame</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+
+  html, body {
+    height: 100%;
+    background: #050814;
+    overflow: hidden;
+  }
+
+  #game-container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    background: #050814;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .screen {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+    background: radial-gradient(circle at 50% 30%, #1c2b4a, #050814 70%);
+  }
+  .hidden { display: none !important; }
+
+  /* START / INSTRUCTIONS / END SCREENS */
+  #start-screen h1, #end-screen h1, #instructions-screen h1 {
+    font-size: 2.6em;
+    margin-bottom: 14px;
+    color: #7ee8fa;
+    text-shadow: 0 0 14px rgba(126,232,250,0.6);
+  }
+  #start-screen p, #instructions-screen p { margin: 8px 0; font-size: 1.1em; max-width: 620px; line-height: 1.6; }
+
+  .btn {
+    margin-top: 20px;
+    padding: 14px 36px;
+    font-size: 1.15em;
+    font-weight: bold;
+    color: #fff;
+    background: linear-gradient(180deg, #ff8c42, #ff5e62);
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 5px 0 #b33a3a;
+    transition: transform 0.1s;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #b33a3a; }
+  .btn-secondary {
+    background: linear-gradient(180deg, #4fb0ff, #2378d6);
+    box-shadow: 0 5px 0 #1a5599;
+  }
+  .btn-secondary:active { box-shadow: 0 1px 0 #1a5599; }
+
+  #instructions-screen ul {
+    text-align: left;
+    margin: 14px 0;
+    line-height: 1.8;
+    max-width: 640px;
+    font-size: 1.05em;
+  }
+  #instructions-screen li { margin-bottom: 8px; }
+
+  /* GAME SCREEN - LANDSCAPE LAYOUT */
+  #game-screen {
+    display: flex;
+    flex-direction: row;
+    padding: 0;
+    background: #050814;
+    align-items: stretch;
+  }
+
+  #sidebar {
+    width: 300px;
+    min-width: 240px;
+    background: linear-gradient(180deg, #131c33, #050814);
+    padding: 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    border-right: 3px solid #233454;
+    overflow-y: auto;
+  }
+
+  #sidebar h2 {
+    color: #7ee8fa;
+    font-size: 1.25em;
+    text-shadow: 0 0 10px rgba(126,232,250,0.5);
+  }
+
+  .stat-row {
+    display: flex;
+    gap: 10px;
+  }
+  .stat-box {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+  .stat-box .label { display: block; opacity: 0.65; font-size: 0.75em; }
+  .stat-box .value { font-size: 1.25em; font-weight: bold; }
+
+  #timer-bar-bg {
+    width: 100%;
+    height: 10px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  #timer-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #7CFC00, #ffd166, #ff5e62);
+    width: 100%;
+    transition: width 0.2s linear;
+  }
+
+  .control-group {
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .control-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.95em;
+    margin-bottom: 4px;
+  }
+  .control-group label .val { color: #7ee8fa; font-weight: bold; }
+  .control-group input[type="range"] {
+    width: 100%;
+    accent-color: #7ee8fa;
+  }
+
+  #wind-indicator {
+    text-align: center;
+    font-size: 0.95em;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 8px;
+  }
+  #wind-indicator .arrow {
+    display: inline-block;
+    font-size: 1.4em;
+    transition: transform 0.3s;
+  }
+
+  #fire-btn {
+    margin-top: auto;
+    padding: 14px;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #08131f;
+    background: linear-gradient(180deg, #7ee8fa, #38b6ff);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #1f7aa8;
+    transition: transform 0.08s;
+  }
+  #fire-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #1f7aa8; }
+  #fire-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  #feedback-text {
+    min-height: 24px;
+    font-weight: bold;
+    font-size: 1.05em;
+    text-align: center;
+  }
+
+  /* CANVAS AREA */
+  #canvas-area {
+    flex: 1;
+    position: relative;
+  }
+  #game-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ROUND BANNER */
+  #round-banner {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: #fff;
+    font-size: 1.8em;
+    font-weight: bold;
+    z-index: 10;
+  }
+  #round-banner span { color: #7ee8fa; font-size: 1.1em; margin-top: 10px; max-width: 85%; text-align: center; }
+
+  /* END SCREEN */
+  #stars { font-size: 3em; margin: 16px 0; letter-spacing: 8px; }
+  .star { color: #233454; transition: color 0.3s, transform 0.3s; display: inline-block; }
+  .star.filled { color: #7ee8fa; transform: scale(1.2); text-shadow: 0 0 14px #7ee8fa; }
+  #end-stats { font-size: 1.2em; line-height: 1.9; margin-bottom: 10px; }
+
+  /* SOUND TOGGLE */
+  #sound-toggle {
+    position: absolute;
+    top: 14px; right: 14px;
+    background: rgba(0,0,0,0.4);
+    border: none;
+    color: #fff;
+    border-radius: 50%;
+    width: 40px; height: 40px;
+    font-size: 1.2em;
+    cursor: pointer;
+    z-index: 20;
+  }
+
+  @media (max-width: 760px) {
+    #game-screen { flex-direction: column; }
+    #sidebar { width: 100%; max-height: 45%; }
+    #canvas-area { flex: 1; min-height: 200px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+
+  <button id="sound-toggle" title="Mute/Unmute">🔊</button>
+
+  <!-- START SCREEN -->
+  <div id="start-screen" class="screen">
+    <h1>🚀 Launch Lab</h1>
+    <p>Apply real projectile motion physics! Adjust the launch <b>angle</b> and <b>power</b>,
+    account for the <b>wind</b>, and fire your projectile to hit each target.<br>
+    Watch the trajectory preview update live as you tune your shot.</p>
+    <button class="btn" id="btn-start">Start Game</button>
+    <button class="btn btn-secondary" id="btn-instructions">How to Play</button>
+  </div>
+
+  <!-- INSTRUCTIONS SCREEN -->
+  <div id="instructions-screen" class="screen hidden">
+    <h1>How to Play</h1>
+    <ul>
+      <li>🎯 Each round has a target placed at a different distance (and sometimes height).</li>
+      <li>📐 Use the <b>Angle</b> slider (10°-80°) to set your launch angle.</li>
+      <li>💪 Use the <b>Power</b> slider to set launch speed.</li>
+      <li>🌬️ Watch the <b>Wind</b> indicator — it pushes your projectile left or right!</li>
+      <li>👀 A dotted <b>trajectory preview</b> updates live so you can aim before firing.</li>
+      <li>🔥 Press <b>Fire!</b> to launch. You get 3 shots per round.</li>
+      <li>✅ Hit the target for points — faster hits and fewer shots used = more points.</li>
+      <li>❌ Running out of shots or time without a hit costs a life (❤️).</li>
+      <li>🏆 Complete 6 rounds. Your final score determines your star rating!</li>
+    </ul>
+    <button class="btn" id="btn-back">Back</button>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game-screen" class="screen hidden">
+    <div id="sidebar">
+      <h2>🚀 Launch Lab</h2>
+      <div class="stat-row">
+        <div class="stat-box"><span class="label">Score</span><span class="value" id="hud-score">0</span></div>
+        <div class="stat-box"><span class="label">Round</span><span class="value" id="hud-round">1 / 6</span></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-box"><span class="label">Lives</span><span class="value" id="hud-lives">❤️❤️❤️</span></div>
+        <div class="stat-box"><span class="label">Shots Left</span><span class="value" id="hud-shots">3</span></div>
+      </div>
+      <div id="timer-bar-bg"><div id="timer-bar"></div></div>
+
+      <div class="control-group">
+        <label>Angle <span class="val" id="angle-val">45°</span></label>
+        <input type="range" id="angle-slider" min="10" max="80" value="45">
+      </div>
+      <div class="control-group">
+        <label>Power <span class="val" id="power-val">60</span></label>
+        <input type="range" id="power-slider" min="20" max="100" value="60">
+      </div>
+
+      <div id="wind-indicator">
+        <span class="arrow" id="wind-arrow">→</span>
+        <span id="wind-text">Wind: 0</span>
+      </div>
+
+      <div id="feedback-text"></div>
+      <button id="fire-btn">🔥 Fire!</button>
+    </div>
+    <div id="canvas-area">
+      <canvas id="game-canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- END SCREEN -->
+  <div id="end-screen" class="screen hidden">
+    <h1 id="end-title">Mission Complete!</h1>
+    <div id="stars">
+      <span class="star" id="star1">★</span>
+      <span class="star" id="star2">★</span>
+      <span class="star" id="star3">★</span>
+    </div>
+    <div id="end-stats"></div>
+    <button class="btn" id="btn-restart">Play Again</button>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  // ====================== AUDIO ======================
+  let audioCtx = null;
+  let muted = false;
+  let bgInterval = null;
+
+  function getCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  function beep(freq, duration, type = 'sine', volume = 0.15) {
+    if (muted) return;
+    const ctx = getCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.value = volume;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+    osc.stop(ctx.currentTime + duration);
+  }
+
+  // White-noise based explosion / impact sound
+  function noiseBurst(duration, volume = 0.3, filterFreq = 1000) {
+    if (muted) return;
+    const ctx = getCtx();
+    const bufferSize = ctx.sampleRate * duration;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = filterFreq;
+
+    const gain = ctx.createGain();
+    gain.gain.value = volume;
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start();
+  }
+
+  function launchWhoosh(power) {
+    if (muted) return;
+    const ctx = getCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    const startFreq = 200 + power * 4;
+    osc.frequency.setValueAtTime(startFreq, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(startFreq * 0.3, ctx.currentTime + 0.4);
+    gain.gain.value = 0.12;
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  }
+
+  const sounds = {
+    launch: (power) => launchWhoosh(power),
+    hit: () => { noiseBurst(0.4, 0.3, 2500); [880,1320,1760].forEach((f,i)=>setTimeout(()=>beep(f,0.15,'triangle',0.15), i*80)); },
+    miss: () => { noiseBurst(0.25, 0.2, 600); },
+    wrong: () => { beep(180, 0.3, 'sawtooth', 0.2); },
+    start: () => { beep(523, 0.12); setTimeout(()=>beep(659,0.12),120); setTimeout(()=>beep(784,0.18),240); },
+    roundEnd: () => { beep(440, 0.2, 'square', 0.12); },
+    gameOver: () => { beep(300, 0.25,'sawtooth',0.2); setTimeout(()=>beep(200,0.4,'sawtooth',0.2),200); },
+    win: () => { [523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,0.2,'triangle',0.15), i*150)); }
+  };
+
+  // Epic marching-style background loop
+  function startBgMusic() {
+    stopBgMusic();
+    const pattern = [
+      {f:196, d:'bass'}, {f:196, d:'bass'}, {f:294, d:'high'}, {f:196, d:'bass'},
+      {f:233, d:'bass'}, {f:233, d:'bass'}, {f:349, d:'high'}, {f:233, d:'bass'}
+    ];
+    let i = 0;
+    bgInterval = setInterval(() => {
+      if (!muted) {
+        const note = pattern[i % pattern.length];
+        beep(note.f, 0.18, note.d === 'bass' ? 'triangle' : 'sine', note.d === 'bass' ? 0.05 : 0.03);
+      }
+      i++;
+    }, 260);
+  }
+  function stopBgMusic() {
+    if (bgInterval) clearInterval(bgInterval);
+    bgInterval = null;
+  }
+
+  document.getElementById('sound-toggle').addEventListener('click', () => {
+    muted = !muted;
+    document.getElementById('sound-toggle').textContent = muted ? '🔇' : '🔊';
+  });
+
+  // ====================== GAME STATE ======================
+  const TOTAL_ROUNDS = 6;
+  const STARTING_LIVES = 3;
+  const SHOTS_PER_ROUND = 3;
+  const ROUND_TIME = 25; // seconds
+  const GRAVITY = 600; // px/s^2 (downward)
+
+  let score = 0;
+  let lives = STARTING_LIVES;
+  let round = 0;
+  let shotsLeft = SHOTS_PER_ROUND;
+  let timeLeft = ROUND_TIME;
+  let timerInterval = null;
+  let roundActive = false;
+  let gameActive = false;
+
+  let angle = 45;
+  let power = 60;
+  let wind = 0; // px/s^2 horizontal acceleration
+
+  let target = { x: 0, y: 0, r: 24, oscillate: false, baseY: 0, amp: 0, freq: 0 };
+  let cannon = { x: 70, y: 0 };
+  let groundY = 0;
+
+  let projectile = null; // {x,y,vx,vy,trail:[]}
+  let particles = [];
+  let clouds = [];
+
+  let lastTime = 0;
+
+  // ====================== DOM ======================
+  const startScreen = document.getElementById('start-screen');
+  const instructionsScreen = document.getElementById('instructions-screen');
+  const gameScreen = document.getElementById('game-screen');
+  const endScreen = document.getElementById('end-screen');
+  const canvas = document.getElementById('game-canvas');
+  const ctx2d = canvas.getContext('2d');
+  const canvasArea = document.getElementById('canvas-area');
+
+  const hudScore = document.getElementById('hud-score');
+  const hudRound = document.getElementById('hud-round');
+  const hudLives = document.getElementById('hud-lives');
+  const hudShots = document.getElementById('hud-shots');
+  const timerBar = document.getElementById('timer-bar');
+  const feedbackText = document.getElementById('feedback-text');
+  const fireBtn = document.getElementById('fire-btn');
+
+  const angleSlider = document.getElementById('angle-slider');
+  const powerSlider = document.getElementById('power-slider');
+  const angleVal = document.getElementById('angle-val');
+  const powerVal = document.getElementById('power-val');
+  const windArrow = document.getElementById('wind-arrow');
+  const windText = document.getElementById('wind-text');
+
+  function showScreen(el) {
+    [startScreen, instructionsScreen, gameScreen, endScreen].forEach(s => s.classList.add('hidden'));
+    el.classList.remove('hidden');
+  }
+
+  // ====================== NAVIGATION ======================
+  document.getElementById('btn-instructions').addEventListener('click', () => showScreen(instructionsScreen));
+  document.getElementById('btn-back').addEventListener('click', () => showScreen(startScreen));
+  document.getElementById('btn-start').addEventListener('click', () => { sounds.start(); startGame(); });
+  document.getElementById('btn-restart').addEventListener('click', () => { sounds.start(); startGame(); });
+
+  // ====================== SLIDERS ======================
+  angleSlider.addEventListener('input', () => {
+    angle = parseInt(angleSlider.value, 10);
+    angleVal.textContent = angle + '°';
+  });
+  powerSlider.addEventListener('input', () => {
+    power = parseInt(powerSlider.value, 10);
+    powerVal.textContent = power;
+  });
+
+  fireBtn.addEventListener('click', fireProjectile);
+
+  // ====================== CANVAS SIZING ======================
+  function resizeCanvas() {
+    const rect = canvasArea.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    groundY = canvas.height - 60;
+    cannon.y = groundY;
+    if (gameActive) repositionTargetForRound();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  // ====================== GAME SETUP ======================
+  function startGame() {
+    score = 0;
+    lives = STARTING_LIVES;
+    round = 0;
+    angle = 45; power = 60;
+    angleSlider.value = 45; powerSlider.value = 60;
+    angleVal.textContent = '45°'; powerVal.textContent = '60';
+    initClouds();
+    updateHud();
+    showScreen(gameScreen);
+    requestAnimationFrame(() => {
+      resizeCanvas();
+      gameActive = true;
+      startBgMusic();
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+      nextRound();
+    });
+  }
+
+  function updateHud() {
+    hudScore.textContent = score;
+    hudRound.textContent = `${Math.min(round, TOTAL_ROUNDS)} / ${TOTAL_ROUNDS}`;
+    hudLives.textContent = '❤️'.repeat(Math.max(lives,0)) + '🖤'.repeat(Math.max(STARTING_LIVES-lives,0));
+    hudShots.textContent = shotsLeft;
+  }
+
+  function initClouds() {
+    clouds = [];
+    for (let i = 0; i < 5; i++) {
+      clouds.push({ x: Math.random(), y: 0.1 + Math.random() * 0.3, scale: 0.6 + Math.random()*0.8, speed: 5 + Math.random()*10 });
+    }
+  }
+
+  // ====================== ROUND FLOW ======================
+  function nextRound() {
+    round++;
+    if (round > TOTAL_ROUNDS) {
+      endGame(true);
+      return;
+    }
+    updateHud();
+    feedbackText.textContent = '';
+    shotsLeft = SHOTS_PER_ROUND;
+    projectile = null;
+    particles = [];
+
+    // Wind: increases in magnitude possibility with round number
+    const maxWind = 30 + round * 15;
+    wind = Math.round((Math.random() * 2 - 1) * maxWind);
+    updateWindIndicator();
+
+    repositionTargetForRound();
+    updateHud();
+
+    showRoundBanner(`Round ${round} / ${TOTAL_ROUNDS}`, `Target distance increased! Wind: ${wind > 0 ? wind + ' →' : (wind < 0 ? Math.abs(wind) + ' ←' : '0')}`, () => {
+      roundActive = true;
+      fireBtn.disabled = false;
+      timeLeft = ROUND_TIME;
+      startTimer();
+    });
+  }
+
+  function repositionTargetForRound() {
+    const minX = canvas.width * 0.5;
+    const maxX = canvas.width * 0.92;
+    const progress = (round - 1) / Math.max(1, TOTAL_ROUNDS - 1);
+    const tx = minX + (maxX - minX) * (0.3 + progress * 0.7) + (Math.random()*60 - 30);
+
+    let baseY = groundY;
+    let oscillate = false, amp = 0, freq = 0;
+
+    if (round >= 4) {
+      // elevated / moving target for later rounds
+      baseY = groundY - (60 + Math.random() * 100);
+      if (round >= 5) {
+        oscillate = true;
+        amp = 20 + Math.random() * 20;
+        freq = 0.8 + Math.random() * 0.6;
+      }
+    }
+
+    target = { x: Math.min(tx, canvas.width - 30), y: baseY, r: 22, oscillate, baseY, amp, freq, t: 0 };
+  }
+
+  function updateWindIndicator() {
+    if (wind === 0) {
+      windArrow.textContent = '•';
+      windText.textContent = 'Wind: calm';
+    } else if (wind > 0) {
+      windArrow.textContent = '→';
+      windArrow.style.transform = 'scaleX(1)';
+      windText.textContent = `Wind: ${wind} (pushing right)`;
+    } else {
+      windArrow.textContent = '→';
+      windArrow.style.transform = 'scaleX(-1)';
+      windText.textContent = `Wind: ${Math.abs(wind)} (pushing left)`;
+    }
+  }
+
+  function showRoundBanner(title, subtitle, callback) {
+    const banner = document.createElement('div');
+    banner.id = 'round-banner';
+    banner.innerHTML = `<div>${title}</div><span>${subtitle}</span>`;
+    document.getElementById('game-container').appendChild(banner);
+    setTimeout(() => {
+      banner.remove();
+      callback();
+    }, 1400);
+  }
+
+  // ====================== TIMER ======================
+  function startTimer() {
+    clearInterval(timerInterval);
+    timerBar.style.transition = 'none';
+    timerBar.style.width = '100%';
+    requestAnimationFrame(() => {
+      timerBar.style.transition = `width ${ROUND_TIME}s linear`;
+      timerBar.style.width = '0%';
+    });
+
+    timerInterval = setInterval(() => {
+      timeLeft -= 1;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        handleRoundFail("⏰ Time's up!");
+      }
+    }, 1000);
+  }
+  function stopTimer() {
+    clearInterval(timerInterval);
+    timerBar.style.transition = 'none';
+  }
+
+  // ====================== FIRE ======================
+  function fireProjectile() {
+    if (!roundActive || projectile || shotsLeft <= 0) return;
+    shotsLeft--;
+    updateHud();
+    fireBtn.disabled = true;
+
+    const angleRad = angle * Math.PI / 180;
+    const speed = power * 6; // px/s
+
+    projectile = {
+      x: cannon.x,
+      y: cannon.y - 10,
+      vx: speed * Math.cos(angleRad),
+      vy: -speed * Math.sin(angleRad),
+      trail: []
+    };
+    sounds.launch(power);
+  }
+
+  // ====================== MAIN LOOP ======================
+  function loop(now) {
+    const dt = Math.min(0.033, (now - lastTime) / 1000);
+    lastTime = now;
+
+    if (gameActive) {
+      update(dt, now);
+      draw();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  function update(dt, now) {
+    // Update clouds
+    clouds.forEach(c => {
+      c.x += (c.speed * dt) / canvas.width;
+      if (c.x > 1.2) c.x = -0.2;
+    });
+
+    // Update target oscillation
+    if (target.oscillate) {
+      target.t += dt;
+      target.y = target.baseY + Math.sin(target.t * target.freq * Math.PI * 2) * target.amp;
+    }
+
+    // Update projectile
+    if (projectile) {
+      projectile.vx += wind * dt;
+      projectile.vy += GRAVITY * dt;
+      projectile.x += projectile.vx * dt;
+      projectile.y += projectile.vy * dt;
+
+      projectile.trail.push({ x: projectile.x, y: projectile.y });
+      if (projectile.trail.length > 60) projectile.trail.shift();
+
+      // Check collision with target
+      const dx = projectile.x - target.x;
+      const dy = projectile.y - target.y;
+      if (Math.sqrt(dx*dx + dy*dy) < target.r + 6) {
+        handleHit();
+      } else if (projectile.y >= groundY || projectile.x > canvas.width || projectile.x < 0) {
+        handleMiss();
+      }
+    }
+
+    // Update particles
+    particles = particles.filter(p => {
+      p.vy += GRAVITY * 0.5 * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      return p.life > 0;
+    });
+  }
+
+  // ====================== HIT / MISS ======================
+  function handleHit() {
+    if (!roundActive) return;
+    roundActive = false;
+    stopTimer();
+    sounds.hit();
+
+    spawnParticles(projectile.x, projectile.y, '#ffd166', 28);
+    spawnParticles(projectile.x, projectile.y, '#7ee8fa', 16);
+
+    const shotBonus = shotsLeft * 15;
+    const timeBonus = timeLeft * 2;
+    score += 50 + shotBonus + timeBonus;
+    updateHud();
+
+    feedbackText.textContent = `🎯 Direct hit! +${50 + shotBonus + timeBonus} pts`;
+    feedbackText.style.color = '#7CFC00';
+
+    projectile = null;
+    setTimeout(() => { if (gameActive) nextRound(); }, 1300);
+  }
+
+  function handleMiss() {
+    spawnParticles(projectile.x, Math.min(projectile.y, groundY), '#888', 10);
+    sounds.miss();
+    projectile = null;
+
+    if (shotsLeft > 0) {
+      fireBtn.disabled = false;
+      feedbackText.textContent = `Missed! ${shotsLeft} shot(s) left.`;
+      feedbackText.style.color = '#ffd166';
+    } else {
+      handleRoundFail('Out of shots!');
+    }
+  }
+
+  function handleRoundFail(message) {
+    if (!roundActive) return;
+    roundActive = false;
+    stopTimer();
+    fireBtn.disabled = true;
+    lives -= 1;
+    sounds.wrong();
+    updateHud();
+    feedbackText.textContent = `${message} -1 life`;
+    feedbackText.style.color = '#ff5e62';
+    projectile = null;
+
+    if (lives <= 0) {
+      setTimeout(() => endGame(false), 1200);
+    } else {
+      setTimeout(() => { if (gameActive) nextRound(); }, 1300);
+    }
+  }
+
+  // ====================== PARTICLES ======================
+  function spawnParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const speed = 50 + Math.random() * 200;
+      particles.push({
+        x, y,
+        vx: Math.cos(ang) * speed,
+        vy: Math.sin(ang) * speed - 50,
+        life: 0.6 + Math.random() * 0.5,
+        maxLife: 1.0,
+        color,
+        size: 2 + Math.random() * 3
+      });
+    }
+  }
+
+  // ====================== DRAWING ======================
+  function draw() {
+    const w = canvas.width, h = canvas.height;
+
+    // Sky gradient
+    const sky = ctx2d.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#0a1a3a');
+    sky.addColorStop(1, '#2e4a73');
+    ctx2d.fillStyle = sky;
+    ctx2d.fillRect(0, 0, w, h);
+
+    // Stars (subtle)
+    ctx2d.fillStyle = 'rgba(255,255,255,0.4)';
+    for (let i = 0; i < 30; i++) {
+      const sx = (i * 97) % w;
+      const sy = (i * 53) % (h * 0.5);
+      ctx2d.fillRect(sx, sy, 1.5, 1.5);
+    }
+
+    // Clouds
+    clouds.forEach(c => {
+      const cx = c.x * w, cy = c.y * h * 0.6;
+      ctx2d.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx2d.beginPath();
+      ctx2d.ellipse(cx, cy, 40 * c.scale, 16 * c.scale, 0, 0, Math.PI*2);
+      ctx2d.ellipse(cx + 30*c.scale, cy + 6*c.scale, 30*c.scale, 14*c.scale, 0, 0, Math.PI*2);
+      ctx2d.ellipse(cx - 30*c.scale, cy + 6*c.scale, 28*c.scale, 12*c.scale, 0, 0, Math.PI*2);
+      ctx2d.fill();
+    });
+
+    // Ground
+    ctx2d.fillStyle = '#2f6b4f';
+    ctx2d.fillRect(0, groundY, w, h - groundY);
+    ctx2d.fillStyle = '#3d8a66';
+    ctx2d.fillRect(0, groundY, w, 4);
+
+    // Cannon
+    drawCannon();
+
+    // Target
+    drawTarget();
+
+    // Trajectory preview (only when aiming, no projectile in flight)
+    if (roundActive && !projectile) {
+      drawTrajectoryPreview();
+    }
+
+    // Projectile + trail
+    if (projectile) {
+      drawProjectileTrail();
+    }
+
+    // Particles
+    particles.forEach(p => {
+      ctx2d.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx2d.fillStyle = p.color;
+      ctx2d.beginPath();
+      ctx2d.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      ctx2d.fill();
+    });
+    ctx2d.globalAlpha = 1;
+  }
+
+  function drawCannon() {
+    const angleRad = angle * Math.PI / 180;
+    const baseX = cannon.x, baseY = cannon.y;
+
+    // Base
+    ctx2d.fillStyle = '#555';
+    ctx2d.beginPath();
+    ctx2d.arc(baseX, baseY, 18, Math.PI, 0);
+    ctx2d.fill();
+
+    // Barrel
+    ctx2d.save();
+    ctx2d.translate(baseX, baseY - 6);
+    ctx2d.rotate(-angleRad);
+    ctx2d.fillStyle = '#7ee8fa';
+    ctx2d.shadowColor = '#7ee8fa';
+    ctx2d.shadowBlur = 8;
+    ctx2d.fillRect(0, -6, 50, 12);
+    ctx2d.restore();
+    ctx2d.shadowBlur = 0;
+  }
+
+  function drawTarget() {
+    // Pole if elevated
+    if (target.baseY < groundY - 5) {
+      ctx2d.strokeStyle = '#aaa';
+      ctx2d.lineWidth = 4;
+      ctx2d.beginPath();
+      ctx2d.moveTo(target.x, target.y);
+      ctx2d.lineTo(target.x, groundY);
+      ctx2d.stroke();
+    }
+
+    // Target rings
+    const ringColors = ['#ff5e62', '#fff', '#ff5e62'];
+    [target.r, target.r*0.66, target.r*0.33].forEach((r, i) => {
+      ctx2d.fillStyle = ringColors[i % ringColors.length];
+      ctx2d.beginPath();
+      ctx2d.arc(target.x, target.y, r, 0, Math.PI*2);
+      ctx2d.fill();
+    });
+    ctx2d.fillStyle = '#ffd166';
+    ctx2d.beginPath();
+    ctx2d.arc(target.x, target.y, target.r*0.12, 0, Math.PI*2);
+    ctx2d.fill();
+  }
+
+  function drawTrajectoryPreview() {
+    const angleRad = angle * Math.PI / 180;
+    const speed = power * 6;
+    let x = cannon.x, y = cannon.y - 10;
+    let vx = speed * Math.cos(angleRad);
+    let vy = -speed * Math.sin(angleRad);
+    const dt = 0.05;
+
+    ctx2d.fillStyle = 'rgba(255,255,255,0.4)';
+    for (let i = 0; i < 80; i++) {
+      vx += wind * dt;
+      vy += GRAVITY * dt;
+      x += vx * dt;
+      y += vy * dt;
+      if (y >= groundY || x > canvas.width || x < 0) break;
+      if (i % 3 === 0) {
+        ctx2d.beginPath();
+        ctx2d.arc(x, y, 2, 0, Math.PI*2);
+        ctx2d.fill();
+      }
+    }
+  }
+
+  function drawProjectileTrail() {
+    // Trail glow
+    projectile.trail.forEach((p, i) => {
+      const alpha = i / projectile.trail.length;
+      ctx2d.fillStyle = `rgba(126,232,250,${alpha * 0.5})`;
+      ctx2d.beginPath();
+      ctx2d.arc(p.x, p.y, 2 + alpha*3, 0, Math.PI*2);
+      ctx2d.fill();
+    });
+
+    // Projectile itself
+    ctx2d.shadowColor = '#ffd166';
+    ctx2d.shadowBlur = 12;
+    ctx2d.fillStyle = '#ffd166';
+    ctx2d.beginPath();
+    ctx2d.arc(projectile.x, projectile.y, 6, 0, Math.PI*2);
+    ctx2d.fill();
+    ctx2d.shadowBlur = 0;
+  }
+
+  // ====================== END GAME ======================
+  function endGame(completedAll) {
+    gameActive = false;
+    roundActive = false;
+    stopTimer();
+    stopBgMusic();
+    fireBtn.disabled = true;
+
+    const maxScore = TOTAL_ROUNDS * (50 + 45 + 50); // rough max per round
+    let starCount = 0;
+    if (score >= maxScore * 0.6) starCount = 3;
+    else if (score >= maxScore * 0.35) starCount = 2;
+    else if (score > 0) starCount = 1;
+
+    document.getElementById('end-title').textContent =
+      lives > 0 ? '🎉 Mission Complete!' : '💥 Out of Lives!';
+    document.getElementById('end-stats').innerHTML =
+      `Final Score: <b>${score}</b><br>Rounds Completed: <b>${Math.min(round, TOTAL_ROUNDS)} / ${TOTAL_ROUNDS}</b><br>Lives Remaining: <b>${Math.max(lives,0)}</b>`;
+
+    for (let i = 1; i <= 3; i++) document.getElementById('star' + i).classList.remove('filled');
+
+    if (lives > 0 && starCount >= 2) sounds.win(); else sounds.gameOver();
+
+    showScreen(endScreen);
+
+    for (let i = 1; i <= starCount; i++) {
+      setTimeout(() => {
+        document.getElementById('star' + i).classList.add('filled');
+        beep(700 + i*150, 0.2, 'triangle', 0.15);
+      }, i * 400);
+    }
+  }
+
+})();
+</script>
+</body>
+</html>
