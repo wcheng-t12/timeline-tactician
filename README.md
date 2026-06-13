@@ -5,7 +5,7 @@
 
 ## 🌐 Play Online
 ```
-
+https://wcheng-t12.github.io/timeline-tactician/
 ```
 
 ## 📖 About
